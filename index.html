@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A* 路径规划算法交互实验台，支持 A*、Dijkstra 和 BFS 对比。"
+    />
+    <title>PATHLAB · A* 算法实践</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="PATHLAB 首页">
+          <span class="brand-mark" aria-hidden="true">A<span>*</span></span>
+          <span class="brand-copy">
+            <strong>PATHLAB</strong>
+            <small>ALGORITHM PRACTICE</small>
+          </span>
+        </a>
+        <div class="topbar-context">
+          <span class="course-tag">人工智能 · 算法实践</span>
+          <span class="live-dot" aria-hidden="true"></span>
+          <span>交互实验台</span>
+        </div>
+        <button class="compare-trigger" id="compareButton" type="button">
+          <i data-lucide="git-compare-arrows" aria-hidden="true"></i>
+          算法对比
+        </button>
+      </header>
+
+      <main class="workspace">
+        <aside class="control-rail" aria-label="算法与地图控制">
+          <section class="rail-section">
+            <div class="section-heading">
+              <span>搜索策略</span>
+              <span class="section-index">01</span>
+            </div>
+            <div class="algorithm-tabs" role="tablist" aria-label="搜索算法">
+              <button class="algorithm-tab is-active" type="button" data-algorithm="astar" role="tab" aria-selected="true">
+                <strong>A*</strong>
+                <span>启发式搜索</span>
+              </button>
+              <button class="algorithm-tab" type="button" data-algorithm="dijkstra" role="tab" aria-selected="false">
+                <strong>DJ</strong>
+                <span>Dijkstra</span>
+              </button>
+              <button class="algorithm-tab" type="button" data-algorithm="bfs" role="tab" aria-selected="false">
+                <strong>BFS</strong>
+                <span>广度优先</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="rail-section">
+            <div class="section-heading">
+              <span>启发式倍率</span>
+              <output id="heuristicValue" for="heuristicRange">1.0×</output>
+            </div>
+            <div class="range-row">
+              <input
+                id="heuristicRange"
+                type="range"
+                min="0"
+                max="2"
+                value="1"
+                step="0.1"
+                aria-label="启发式倍率"
+              />
+            </div>
+            <div class="range-scale" aria-hidden="true">
+              <span>0</span>
+              <span>1</span>
+              <span>2</span>
+            </div>
+          </section>
+
+          <section class="rail-section">
+            <div class="section-heading">
+              <span>地图场景</span>
+              <span class="section-index">02</span>
+            </div>
+            <div class="preset-list" id="presetList">
+              <button class="preset-button is-active" type="button" data-preset="corridor">
+                <span class="preset-glyph" aria-hidden="true"></span>
+                <span><strong>分段走廊</strong><small>单通道 · 多转折</small></span>
+              </button>
+              <button class="preset-button" type="button" data-preset="fork">
+                <span class="preset-glyph preset-glyph-fork" aria-hidden="true"></span>
+                <span><strong>双路径</strong><small>干扰分支 · 对比清晰</small></span>
+              </button>
+              <button class="preset-button" type="button" data-preset="rooms">
+                <span class="preset-glyph preset-glyph-rooms" aria-hidden="true"></span>
+                <span><strong>房间迷宫</strong><small>复杂障碍 · 搜索扩张</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="rail-section tools-section">
+            <div class="section-heading">
+              <span>网格工具</span>
+              <span class="section-index">03</span>
+            </div>
+            <div class="tool-grid" role="group" aria-label="网格编辑工具">
+              <button class="tool-button is-active" type="button" data-tool="wall" aria-pressed="true">
+                <i data-lucide="blocks" aria-hidden="true"></i>
+                <span>障碍</span>
+              </button>
+              <button class="tool-button" type="button" data-tool="erase" aria-pressed="false">
+                <i data-lucide="eraser" aria-hidden="true"></i>
+                <span>擦除</span>
+              </button>
+              <button class="tool-button" type="button" data-tool="start" aria-pressed="false">
+                <i data-lucide="map-pin" aria-hidden="true"></i>
+                <span>起点</span>
+              </button>
+              <button class="tool-button" type="button" data-tool="goal" aria-pressed="false">
+                <i data-lucide="flag" aria-hidden="true"></i>
+                <span>终点</span>
+              </button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="stage" aria-label="路径规划实验区">
+          <div class="stage-head">
+            <div>
+              <span class="eyebrow">CURRENT RUN</span>
+              <h1 id="runTitle">A* 曼哈顿启发式搜索</h1>
+            </div>
+            <div class="run-state" id="runState" data-tone="idle" aria-live="polite">
+              <span class="state-pulse" aria-hidden="true"></span>
+              <span id="runStateText">准备就绪</span>
+            </div>
+          </div>
+
+          <div class="map-frame">
+            <div class="map-ruler map-ruler-top" aria-hidden="true"><span>0</span><span>9</span><span>18</span><span>27</span><span>35</span></div>
+            <div class="map-ruler map-ruler-left" aria-hidden="true"><span>0</span><span>7</span><span>14</span><span>21</span></div>
+            <div class="map-corner" aria-hidden="true"></div>
+            <div
+              class="path-grid"
+              id="pathGrid"
+              role="grid"
+              aria-label="36 列 22 行路径规划网格"
+              aria-rowcount="22"
+              aria-colcount="36"
+            ></div>
+            <div class="map-legend" aria-label="网格图例">
+              <span><i class="legend-swatch legend-start"></i>起点</span>
+              <span><i class="legend-swatch legend-goal"></i>终点</span>
+              <span><i class="legend-swatch legend-wall"></i>障碍</span>
+              <span><i class="legend-swatch legend-open"></i>开放集</span>
+              <span><i class="legend-swatch legend-closed"></i>已访问</span>
+              <span><i class="legend-swatch legend-path"></i>路径</span>
+            </div>
+          </div>
+
+          <div class="playback-dock">
+            <div class="playback-primary">
+              <button class="icon-button play-button" id="playButton" type="button" aria-label="开始搜索" title="开始搜索">
+                <i data-lucide="play" aria-hidden="true"></i>
+              </button>
+              <button class="icon-button" id="stepButton" type="button" aria-label="单步执行" title="单步执行">
+                <i data-lucide="step-forward" aria-hidden="true"></i>
+              </button>
+              <button class="icon-button" id="backButton" type="button" aria-label="回退一步" title="回退一步">
+                <i data-lucide="step-back" aria-hidden="true"></i>
+              </button>
+              <button class="icon-button" id="resetButton" type="button" aria-label="重置运行" title="重置运行">
+                <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="timeline">
+              <div class="timeline-labels">
+                <span>事件回放</span>
+                <output id="eventCounter">0 / 0</output>
+              </div>
+              <input id="timelineRange" type="range" min="0" max="0" value="0" step="1" aria-label="回放进度" disabled />
+            </div>
+            <div class="speed-control">
+              <label for="speedRange">速度</label>
+              <input id="speedRange" type="range" min="1" max="10" value="6" step="1" aria-label="播放速度" />
+              <output id="speedValue" for="speedRange">06</output>
+            </div>
+          </div>
+        </section>
+
+        <aside class="inspector" aria-label="运行指标与节点详情">
+          <section class="inspector-section metrics-section">
+            <div class="section-heading">
+              <span>运行指标</span>
+              <span class="section-index">LIVE</span>
+            </div>
+            <div class="metrics-grid">
+              <div class="metric">
+                <span>已访问节点</span>
+                <strong id="visitedMetric">0</strong>
+              </div>
+              <div class="metric">
+                <span>开放集</span>
+                <strong id="openMetric">0</strong>
+              </div>
+              <div class="metric">
+                <span>最大 frontier</span>
+                <strong id="frontierMetric">0</strong>
+              </div>
+              <div class="metric">
+                <span>路径长度</span>
+                <strong id="pathMetric">—</strong>
+              </div>
+            </div>
+            <div class="runtime-strip">
+              <span>搜索耗时</span>
+              <strong id="timeMetric">0.0 ms</strong>
+            </div>
+          </section>
+
+          <section class="inspector-section node-section">
+            <div class="section-heading">
+              <span>当前节点</span>
+              <span class="mono" id="nodeCoordinate">—</span>
+            </div>
+            <div class="equation">
+              <span>f(n)</span>
+              <b>=</b>
+              <span>g(n)</span>
+              <b>+</b>
+              <span>h(n)</span>
+            </div>
+            <div class="node-values">
+              <div><span>g</span><strong id="gValue">0</strong></div>
+              <div><span>h</span><strong id="hValue">0</strong></div>
+              <div class="node-f"><span>f</span><strong id="fValue">0</strong></div>
+            </div>
+          </section>
+
+          <section class="inspector-section event-section">
+            <div class="section-heading">
+              <span>事件流</span>
+              <span class="mono" id="eventType">INIT</span>
+            </div>
+            <ol class="event-list" id="eventList">
+              <li class="is-empty">等待运行</li>
+            </ol>
+          </section>
+
+          <section class="inspector-section note-section">
+            <div class="note-mark" aria-hidden="true">h</div>
+            <p id="heuristicNote">Manhattan 距离衡量当前节点到终点的横向与纵向距离之和。</p>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <dialog class="compare-dialog" id="compareDialog">
+      <div class="dialog-head">
+        <div>
+          <span class="eyebrow">SAME MAP / SAME GOAL</span>
+          <h2>算法对比</h2>
+        </div>
+        <button class="icon-button" id="closeCompareButton" type="button" aria-label="关闭对比" title="关闭">
+          <i data-lucide="x" aria-hidden="true"></i>
+        </button>
+      </div>
+      <p class="dialog-intro">固定当前地图与起终点，分别执行三种搜索策略。</p>
+      <div class="compare-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>算法</th>
+              <th>结果</th>
+              <th>路径代价</th>
+              <th>访问节点</th>
+              <th>事件数</th>
+            </tr>
+          </thead>
+          <tbody id="compareRows"></tbody>
+        </table>
+      </div>
+      <div class="compare-insight" id="compareInsight"></div>
+      <div class="dialog-actions">
+        <button class="secondary-button" id="applyBestButton" type="button">查看 A* 回放</button>
+        <button class="primary-button" id="closeCompareButtonBottom" type="button">返回实验台</button>
+      </div>
+    </dialog>
+
+    <script src="./assets/lucide.min.js"></script>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
